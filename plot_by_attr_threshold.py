@@ -39,6 +39,69 @@ class DataAnalyzer(object):
                                                              attr.capitalize()))
         plt.draw()
         plt.pause(0.001)
+        
+    def plot_threshold(self, col_name, trait, recid_dec_col_name):
+        threshold_res = {}
+        
+        # calculate false pos, neg, error, etc. for a group across all possible threshold values
+        for threshold in range(1, 10):
+            threshold_res[threshold] = {"false_neg": 0, "false_pos": 0, "error": 0, "bias": 0}
+            signed_error = 0
+            
+            frame = self.df
+            if trait != "ALL":
+                frame = self.df[self.df[col_name] == trait]
+                
+            for index, person in frame.iterrows():
+                person_error = 0
+                
+                if int(person[CSVReaderConst.RECIDIVISM_COL_NAME]) == 1:
+                    if int(person[recid_dec_col_name] <= threshold):
+                        person_error = -1
+                        threshold_res[threshold]["false_neg"] += 1
+                else:
+                    if int(person[recid_dec_col_name] > threshold):
+                        person_error = 1
+                        threshold_res[threshold]["false_pos"] += 1
+                        
+                threshold_res[threshold]["error"] += abs(person_error)
+                signed_error += person_error
+                
+            threshold_res[threshold]["bias"] = signed_error/float(len(frame))
+            print("Stats for {0!s}: {1!s} at threshold {2!s} --> error: {3:.3f}, bias: {4:.3f}".format(col_name,
+                                                                                                       trait,
+                                                                                                       threshold,
+                                                                                                       threshold_res[threshold]["error"],
+                                                                                                       threshold_res[threshold]["bias"]))
+        print(threshold_res)
+        
+        # plot out the false pos, neg, error, etc. for this group
+        default_color = "blue"
+        lowest_error_color = "magenta"
+        x_coords = []
+        y_coords = []
+        colors = []
+        error_labels = []
+        for threshold, val_dict in threshold_res.items():
+            x_coords.append(val_dict["false_pos"])
+            y_coords.append(val_dict["false_neg"])
+            colors.append(default_color)
+            error_labels.append(val_dict["false_pos"] + val_dict["false_neg"])
+            
+        # change color for lowest error producing threshold
+        colors[error_labels.index(min(error_labels))] = lowest_error_color
+        
+        print(colors)
+        
+        fig = plt.figure()
+        plt.scatter(x_coords, y_coords, c=colors)
+        plt.xlabel("False Positives")
+        plt.ylabel("False Negatives")
+        for idx, label in enumerate(error_labels):
+            plt.annotate(label, (x_coords[idx], y_coords[idx]))
+        # plt.plot(np.unique(x_coords), np.poly1d(np.polyfit(x_coords, y_coords, 1))(np.unique(x_coords)))
+        plt.draw()
+        plt.pause(0.001)
 
     def correct_for(self, col_name, recid_dec_col_name, traits=[]):
         '''
@@ -50,40 +113,43 @@ class DataAnalyzer(object):
                 traits.append(trait)
 
         print(traits)
-
-        overall_error = 0
-        for index, person in self.df.iterrows():
-            if int(person[CSVReaderConst.RECIDIVISM_COL_NAME]) == 1:
-                person_error = int(person[recid_dec_col_name] <= CSVReaderConst.THRESHOLD_RISK)
-            else:
-                person_error = int(person[recid_dec_col_name] > CSVReaderConst.THRESHOLD_RISK)
-            overall_error += person_error
-        overall_normalized_error = overall_error/float(len(self.df))
-        print("Normalized error across all groups: {0:.3f}".format(overall_normalized_error))
-
-        baseline_error_dict = {}
-        baseline_bias_dict = {}
-        for trait in traits:
-            group = self.df[self.df[col_name] == trait]
-            num_members = len(group)
-            total_error = 0
-            for index, person in group.iterrows():
+        threshold_res = {}
+        
+        for threshold in range(1, 10):
+            threshold_res[threshold] = {"false_neg": 0, "false_pos": 0}
+            overall_error = 0
+            for index, person in self.df.iterrows():
                 if int(person[CSVReaderConst.RECIDIVISM_COL_NAME]) == 1:
-                    person_error = int(person[recid_dec_col_name] <= CSVReaderConst.THRESHOLD_RISK)
+                    person_error = -1*int(person[recid_dec_col_name] <= threshold)
                 else:
-                    person_error = int(person[recid_dec_col_name] > CSVReaderConst.THRESHOLD_RISK)
-                # don't need abs error because it will always be 0 or 1 (correct or incorrect)
-                total_error += person_error
-            if num_members == 0:
-                raise ValueError("No members found in group {0!s}".format(trait))
-            # if mostly over-predicted, baseline bias positive. if under, negative.
-            baseline_error_dict[trait] = total_error/float(num_members)
-            baseline_bias_dict[trait] = baseline_error_dict[trait] - overall_normalized_error
-            # print(total_error)
-            print("For group {0!s}, baseline error: {1:.3f}, baseline bias: {2:.3f}".format(trait,
-                                                                                            baseline_error_dict[trait],
-                                                                                            baseline_bias_dict[trait]))
+                    person_error = int(person[recid_dec_col_name] > threshold)
+                overall_error += person_error
+            overall_normalized_error = overall_error/float(len(self.df))
+            print("Normalized error across all groups at threshold {0!s}: {1:.3f}".format(threshold, overall_normalized_error))
 
+            baseline_error_dict = {}
+            baseline_bias_dict = {}
+            for trait in traits:
+                group = self.df[self.df[col_name] == trait]
+                num_members = len(group)
+                total_error = 0
+                for index, person in group.iterrows():
+                    if int(person[CSVReaderConst.RECIDIVISM_COL_NAME]) == 1:
+                        person_error = -1*(int(person[recid_dec_col_name] <= threshold))
+                    else:
+                        person_error = int(person[recid_dec_col_name] > threshold)
+                    # don't need abs error because it will always be 0 or 1 (correct or incorrect)
+                    total_error += person_error
+                if num_members == 0:
+                    raise ValueError("No members found in group {0!s}".format(trait))
+                # if mostly over-predicted, baseline bias positive. if under, negative.
+                baseline_error_dict[trait] = total_error/float(num_members)
+                baseline_bias_dict[trait] = baseline_error_dict[trait] - overall_normalized_error
+                # print(total_error)
+                print("At threshold {3!s} group {0!s}, baseline error: {1:.3f}, baseline bias: {2:.3f}".format(trait,
+                                                                                                               baseline_error_dict[trait],
+                                                                                                               baseline_bias_dict[trait],
+                                                                                                               threshold))
         print("=========================================")
         new_error_dict = {}
         new_baseline_dict = {}
@@ -93,8 +159,17 @@ class DataAnalyzer(object):
             new_total_error = 0
             for index, person in group.iterrows():
                 # compensate for bias of this group, subtract bias*HIGHEST_RISK per person
-                # how to improve this, or pick a better multiple?
-                corrected_decile = float(person[recid_dec_col_name]) - float(baseline_bias_dict[trait])*CSVReaderConst.HIGHEST_RISK
+                # how to improve this, or pick a better multiple? Why is it being subtracted always, it just means wrong!
+                corrected_decile = float(person[recid_dec_col_name])
+                if int(person[CSVReaderConst.RECIDIVISM_COL_NAME]) == 1:
+                    if person[recid_dec_col_name] <= CSVReaderConst.THRESHOLD_RISK:
+                        # incorrectly predicted non-recidivism (low risk)
+                        corrected_decile = float(person[recid_dec_col_name]) + float(baseline_bias_dict[trait])*CSVReaderConst.HIGHEST_RISK
+                else:
+                    if corrected_decile > CSVReaderConst.THRESHOLD_RISK:
+                        # incorrectly predicted recidivism (high risk)
+                        corrected_decile = float(person[recid_dec_col_name]) - float(baseline_bias_dict[trait])*CSVReaderConst.HIGHEST_RISK
+
                 if int(person[CSVReaderConst.RECIDIVISM_COL_NAME]) == 1:
                     person_error = int(corrected_decile <= CSVReaderConst.THRESHOLD_RISK)
                 else:
@@ -121,11 +196,11 @@ class AnalyzerShell(cmd.Cmd):
         'Get a percentage and count breakdown of specified argument'
         self.data_analyzer.trait_breakdown(col_name=arg)
 
-    def do_plot_recid(self, arg):
-        'Plot the value of recidivism decile, with a stacked chart of how many actually had recidivism for this attribute.\n \
-        i.e. plot_recid race Caucasian decile_score'
+    def do_plot_threshold(self, arg):
+        'Plot the value of false positives and negatives, with a line of best fit of degree 2, based on colname and trait provided.\n \
+        Using ALL will use all people. i.e. plot_threshold race Caucasian decile_score OR plot_threshold race ALL decile_score'
         split_up = arg.split(" ")
-        self.data_analyzer.plot_recid(*split_up)
+        self.data_analyzer.plot_threshold(*split_up)
 
     def do_correct_for(self, arg):
         'Correct a particular decile score attribute based on a specific column.\nSpecificy traits in the column to correct, or "ALL" for an analysis of all. \
@@ -146,7 +221,7 @@ class AnalyzerShell(cmd.Cmd):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Need filepath")
+        print("Need filepath and threshold for decile_score")
     else:
         shell = AnalyzerShell()
         shell.setup(os.path.normpath(sys.argv[1]))
