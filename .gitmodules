@@ -1,0 +1,3 @@
+[submodule "compas-analysis"]
+	path = compas-analysis
+	url = https://github.com/propublica/compas-analysis.git
