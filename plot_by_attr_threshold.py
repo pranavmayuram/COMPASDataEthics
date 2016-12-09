@@ -82,16 +82,17 @@ class DataAnalyzer(object):
         y_coords = []
         colors = []
         error_labels = []
-        for threshold, val_dict in threshold_res.items():
+        error_vals = []
+        for threshold in sorted(threshold_res.iterkeys()):
+            val_dict = threshold_res[threshold]
             x_coords.append(val_dict["false_pos"])
             y_coords.append(val_dict["false_neg"])
             colors.append(default_color)
-            error_labels.append(val_dict["false_pos"] + val_dict["false_neg"])
+            error_vals.append(val_dict["error"])
+            error_labels.append(" {0!s} (error={1!s}, bias={2:.3f})".format(threshold, val_dict["error"], val_dict["bias"]))
             
         # change color for lowest error producing threshold
-        colors[error_labels.index(min(error_labels))] = lowest_error_color
-        
-        print(colors)
+        colors[error_vals.index(min(error_vals))] = lowest_error_color
         
         fig = plt.figure()
         plt.scatter(x_coords, y_coords, c=colors)
@@ -101,6 +102,9 @@ class DataAnalyzer(object):
             plt.annotate(label, (x_coords[idx], y_coords[idx]))
         # plt.plot(np.unique(x_coords), np.poly1d(np.polyfit(x_coords, y_coords, 1))(np.unique(x_coords)))
         plt.draw()
+        plt.title("Threshold Plot {0!s}\n{1!s} = {2!s}".format(recid_dec_col_name, 
+                                                               col_name.capitalize(), 
+                                                               trait))
         plt.pause(0.001)
 
     def correct_for(self, col_name, recid_dec_col_name, traits=[]):
