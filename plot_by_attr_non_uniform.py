@@ -25,20 +25,6 @@ class DataAnalyzer(object):
         print(breakdown)
         return breakdown
 
-    def plot_recid(self, col_name, attr, recid_dec_col_name):
-        # cuts down table to only where attr exists, creates 2D table using decile, and actual recidivism occuring
-        updated_df = self.df[self.df[col_name] == attr]
-        recid_table = pd.crosstab(index=updated_df[recid_dec_col_name.lower()],
-                                  columns=updated_df[CSVReaderConst.RECIDIVISM_COL_NAME])
-        recid_table.plot(kind="bar",
-                         figsize=(8, 8),
-                         stacked=True,
-                         title="{0!s}, {1!s} = {2!s}".format(recid_dec_col_name.capitalize(),
-                                                             col_name.capitalize(),
-                                                             attr.capitalize()))
-        plt.draw()
-        plt.pause(0.001)
-
     def get_trait_key(self, trait, score):
         return "{0!s}_{1!s}".format(trait, score)
 
@@ -78,43 +64,71 @@ class DataAnalyzer(object):
                 raise ValueError("No members found in group {0!s}".format(trait))
 
         for trait_key, error in baseline_error_dict.items():
-            baseline_bias_dict[trait_key] = error/people_per_trait[trait_key]
+            baseline_bias_dict[trait_key] = float(error)/float(people_per_trait[trait_key])
             # print(total_error)
-            print("For group {0!s}, baseline error: {1:.3f}, baseline bias: {2:.3f}".format(trait_key,
-                                                                                            baseline_error_dict[trait_key],
-                                                                                            baseline_bias_dict[trait_key]))
+            print("For group {0!s}, baseline absolute error: {1:.3f}, baseline bias: {2:.3f}".format(trait_key,
+                                                                                                     baseline_abs_error_dict[trait_key],
+                                                                                                     baseline_bias_dict[trait_key]))
 
         print("=========================================")
         new_error_dict = {}
         new_abs_error_dict = {}
         new_bias_dict = {}
+        t_err = 0
         for trait in traits:
             group = self.df[self.df[col_name] == trait]
             # print(group)
             num_members = len(group)
             for index, person in group.iterrows():
                 trait_key = self.get_trait_key(trait, int(person[recid_dec_col_name]))
+                corrected_decile = float(person[recid_dec_col_name]) - float(baseline_bias_dict[trait_key])
+                # print("corrected_decile {0!s}".format(corrected_decile))
                 if int(person[CSVReaderConst.RECIDIVISM_COL_NAME]) == 1:
-                    person_error = float(person[recid_dec_col_name]) - CSVReaderConst.HIGHEST_RISK
+                    person_error = float(corrected_decile) - CSVReaderConst.HIGHEST_RISK
                 else:
-                    person_error = float(person[recid_dec_col_name]) - CSVReaderConst.LOWEST_RISK
+                    person_error = float(corrected_decile) - CSVReaderConst.LOWEST_RISK
+                
+                t_err += person_error
+                
                 if new_error_dict.get(trait_key, None) is None:
                     new_error_dict[trait_key] = person_error
                     new_abs_error_dict[trait_key] = abs(person_error)
-                    people_per_trait[trait_key] = 1
                 else:
                     new_error_dict[trait_key] += person_error
                     new_abs_error_dict[trait_key] += abs(person_error)
-                    people_per_trait[trait_key] += 1
             if num_members == 0:
                 raise ValueError("No members found in group {0!s}".format(trait))
+                
+        print("t_err: {0!s}".format(t_err))
 
         for trait_key, error in new_error_dict.items():
-            new_bias_dict[trait_key] = error/people_per_trait[trait_key]
-            # print(total_error)
-            print("For group {0!s}, new baseline error: {1:.3f}, new baseline bias: {2:.3f}".format(trait_key,
-                                                                                                    new_error_dict[trait_key],
+            new_bias_dict[trait_key] = float(error)/float(people_per_trait[trait_key])
+            print("For group {0!s}, new absolute error: {1:.3f}, new baseline bias: {2:.3f}".format(trait_key,
+                                                                                                    new_abs_error_dict[trait_key],
                                                                                                     new_bias_dict[trait_key]))
+        
+        baseline_errors = []
+        new_errors = []
+        trait_labels = []
+        for trait_key in sorted(baseline_abs_error_dict.iterkeys()):
+            baseline_errors.append(baseline_abs_error_dict[trait_key])
+            new_errors.append(new_abs_error_dict[trait_key])
+            trait_labels.append(trait_key)
+            
+        num_items = len(baseline_error_dict)
+        ind = np.arange(num_items)
+        width = 0.35
+        fig, ax = plt.subplots()
+        rects1 = ax.bar(ind, baseline_errors, width, color='r')
+        rects2 = ax.bar(ind + width, new_errors, width, color='y')
+        
+        ax.set_ylabel("Absolute Errors")
+        ax.set_xticks(ind + width)
+        ax.set_xticklabels(trait_labels)
+        ax.legend( (rects1[0], rects2[0]), ('Baseline', 'Corrected') )    
+        plt.draw()
+        plt.pause(0.001)
+            
         return baseline_error_dict, baseline_bias_dict, new_error_dict
 
 
