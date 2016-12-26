@@ -11,7 +11,8 @@ The Python scripts create a command line interface to make generating the plots,
 
 ####Types of Error & Bias Analysis
 
-**Below, "demographic" refers to a trait within a column, i.e. "Asian" within the "race" column is an example of a demographic**
+*Below, "demographic" refers to a trait within a column, i.e. "Asian" within the "race" column is an example of a demographic*
+
 There are 3 types of analysis we conducted:
 * Linear bias correction
     * Detected correctness/incorrectness using predicted recidivism score vs. actual recidivism (translated to a score).
