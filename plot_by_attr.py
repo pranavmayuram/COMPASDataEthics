@@ -21,15 +21,22 @@ class DataAnalyzer(object):
         self.df = pd.read_csv(filepath_in)
 
     def trait_breakdown(self, col_name):
+        '''
+        Returns a dictionary of each different trait, and its count within a given column
+        '''
         breakdown = self.df[col_name.lower()].value_counts(sort=True, ascending=False)
         print(breakdown)
         return breakdown
 
     def plot_recid(self, col_name, attr, recid_dec_col_name):
+        '''
+        Plots the breakdown of those who actually commit recidivism by the recidivism score they received
+        '''
         # cuts down table to only where attr exists, creates 2D table using decile, and actual recidivism occuring
         updated_df = self.df[self.df[col_name] == attr]
         recid_table = pd.crosstab(index=updated_df[recid_dec_col_name.lower()],
                                   columns=updated_df[CSVReaderConst.RECIDIVISM_COL_NAME])
+        
         recid_table.plot(kind="bar",
                          figsize=(8, 8),
                          stacked=True,
@@ -51,17 +58,22 @@ class DataAnalyzer(object):
         print(traits)
         baseline_error_dict = {}
         baseline_bias_dict = {}
+        
+        # for each trait, get some error and bias which can be printed/corrected for
         for trait in traits:
             group = self.df[self.df[col_name] == trait]
             num_members = len(group)
             total_abs_error = 0
             total_error = 0
-            # print(group)
+            # iterate through each person in group
             for index, person in group.iterrows():
                 if int(person[CSVReaderConst.RECIDIVISM_COL_NAME]) == 1:
+                    # if recidivism occured, we should expect a high risk, use HIGHEST_RISK
                     person_error = float(person[recid_dec_col_name]) - CSVReaderConst.HIGHEST_RISK
                 else:
+                    # if recidivism did not occur, we should expect a low risk, use LOWEST_RISK
                     person_error = float(person[recid_dec_col_name]) - CSVReaderConst.LOWEST_RISK
+                # compound error (for bias calculation), and absolute error
                 total_error += person_error
                 total_abs_error += abs(person_error)
             if num_members == 0:
@@ -70,11 +82,11 @@ class DataAnalyzer(object):
             # if mostly over-predicted, baseline bias positive. if under, negative.
             baseline_error_dict[trait] = total_abs_error/float(num_members)
             baseline_bias_dict[trait] = baseline_bias
-            # print(total_error)
             print("For group {0!s}, baseline error: {1:.3f}, baseline bias: {2:.3f}".format(trait,
                                                                                             baseline_error_dict[trait],
                                                                                             baseline_bias_dict[trait]))
 
+        # bias correction calculation, now that we have bias per demographic (trait)                                                                                
         print("=========================================")
         new_error_dict = {}
         new_baseline_dict = {}
@@ -84,7 +96,7 @@ class DataAnalyzer(object):
             new_total_error = 0
             total_abs_error = 0
             for index, person in group.iterrows():
-                # compensate for bias of this group, subtract per person
+                # adjust/correct for bias of this group, subtract per person
                 corrected_decile = float(person[recid_dec_col_name]) - float(baseline_bias_dict[trait])
                 if int(person[CSVReaderConst.RECIDIVISM_COL_NAME]) == 1:
                     person_error = float(corrected_decile) - CSVReaderConst.HIGHEST_RISK
@@ -94,6 +106,7 @@ class DataAnalyzer(object):
                 total_abs_error += abs(person_error)
             if num_members == 0:
                 raise ValueError("No members found in group {0!s}".format(trait))
+            # should turn to 0 every time since we corrected everyone for this
             new_baseline_bias = new_total_error/float(num_members)
             new_error_dict[trait] = total_abs_error/float(num_members)
             new_baseline_dict[trait] = new_baseline_bias
