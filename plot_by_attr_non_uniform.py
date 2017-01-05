@@ -2,6 +2,7 @@ import cmd
 import sys
 import os
 import csv
+import math
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -28,7 +29,7 @@ class DataAnalyzer(object):
     def get_trait_key(self, trait, score):
         return "{0!s}_{1!s}".format(trait, score)
 
-    def correct_for(self, col_name, recid_dec_col_name, traits=[]):
+    def correct_for(self, col_name, recid_dec_col_name, traits=[], rms=False):
         '''
         Across same col_name, correct the attribute for each trait to remove bias
         '''
@@ -40,6 +41,8 @@ class DataAnalyzer(object):
         print(traits)
         baseline_error_dict = {}
         baseline_abs_error_dict = {}
+        residual_sq_error_dict = {}
+        rms_error_dict = {}
         people_per_trait = {}
         baseline_bias_dict = {}
         for trait in traits:
@@ -55,24 +58,34 @@ class DataAnalyzer(object):
                 if baseline_error_dict.get(trait_key, None) is None:
                     baseline_error_dict[trait_key] = person_error
                     baseline_abs_error_dict[trait_key] = abs(person_error)
+                    residual_sq_error_dict[trait_key] = pow(person_error, 2)
                     people_per_trait[trait_key] = 1
                 else:
                     baseline_error_dict[trait_key] += person_error
                     baseline_abs_error_dict[trait_key] += abs(person_error)
+                    residual_sq_error_dict[trait_key] += pow(person_error, 2)
                     people_per_trait[trait_key] += 1
             if num_members == 0:
                 raise ValueError("No members found in group {0!s}".format(trait))
 
         for trait_key, error in baseline_error_dict.items():
             baseline_bias_dict[trait_key] = float(error)/float(people_per_trait[trait_key])
+            rms_error_dict[trait_key] = math.sqrt(float(residual_sq_error_dict[trait_key])/float(people_per_trait[trait_key]))
             # print(total_error)
-            print("For group {0!s}, baseline absolute error: {1:.3f}, baseline bias: {2:.3f}".format(trait_key,
-                                                                                                     baseline_abs_error_dict[trait_key],
-                                                                                                     baseline_bias_dict[trait_key]))
+            if rms:
+                print("For group {0!s}, root mean squared error: {1:.3f}, baseline bias: {2:.3f}".format(trait_key,
+                                                                                                         rms_error_dict[trait_key],
+                                                                                                         baseline_bias_dict[trait_key]))
+            else:
+                print("For group {0!s}, baseline absolute error: {1:.3f}, baseline bias: {2:.3f}".format(trait_key,
+                                                                                                         baseline_abs_error_dict[trait_key],
+                                                                                                         baseline_bias_dict[trait_key]))
 
         print("=========================================")
         new_error_dict = {}
         new_abs_error_dict = {}
+        new_rms_error_dict = {}
+        new_residual_sq_error_dict = {}
         new_bias_dict = {}
         t_err = 0
         for trait in traits:
@@ -93,9 +106,11 @@ class DataAnalyzer(object):
                 if new_error_dict.get(trait_key, None) is None:
                     new_error_dict[trait_key] = person_error
                     new_abs_error_dict[trait_key] = abs(person_error)
+                    new_residual_sq_error_dict[trait_key] = pow(person_error, 2)
                 else:
                     new_error_dict[trait_key] += person_error
                     new_abs_error_dict[trait_key] += abs(person_error)
+                    new_residual_sq_error_dict[trait_key] += pow(person_error, 2)
             if num_members == 0:
                 raise ValueError("No members found in group {0!s}".format(trait))
                 
@@ -103,16 +118,26 @@ class DataAnalyzer(object):
 
         for trait_key, error in new_error_dict.items():
             new_bias_dict[trait_key] = float(error)/float(people_per_trait[trait_key])
-            print("For group {0!s}, new absolute error: {1:.3f}, new baseline bias: {2:.3f}".format(trait_key,
-                                                                                                    new_abs_error_dict[trait_key],
-                                                                                                    new_bias_dict[trait_key]))
+            new_rms_error_dict[trait_key] = math.sqrt(float(new_residual_sq_error_dict[trait_key])/float(people_per_trait[trait_key]))
+            if rms:
+                print("For group {0!s}, new root mean squared error: {1:.3f}, new baseline bias: {2:.3f}".format(trait_key,
+                                                                                                                 new_rms_error_dict[trait_key],
+                                                                                                                 new_bias_dict[trait_key]))
+            else:
+                print("For group {0!s}, new absolute error: {1:.3f}, new baseline bias: {2:.3f}".format(trait_key,
+                                                                                                        new_abs_error_dict[trait_key],
+                                                                                                        new_bias_dict[trait_key]))
         
         baseline_errors = []
         new_errors = []
         trait_labels = []
         for trait_key in sorted(baseline_abs_error_dict.iterkeys()):
-            baseline_errors.append(baseline_abs_error_dict[trait_key])
-            new_errors.append(new_abs_error_dict[trait_key])
+            if rms:
+                baseline_errors.append(rms_error_dict[trait_key])
+                new_errors.append(new_rms_error_dict[trait_key])
+            else:
+                baseline_errors.append(baseline_abs_error_dict[trait_key])
+                new_errors.append(new_abs_error_dict[trait_key])
             trait_labels.append(trait_key)
             
         num_items = len(baseline_error_dict)
@@ -122,7 +147,10 @@ class DataAnalyzer(object):
         rects1 = ax.bar(ind, baseline_errors, width, color='r')
         rects2 = ax.bar(ind + width, new_errors, width, color='y')
         
-        ax.set_ylabel("Absolute Errors")
+        if rms:
+            ax.set_ylabel("Root Mean Squared Errors")
+        else:
+            ax.set_ylabel("Absolute Errors")
         ax.set_xticks(ind + width)
         ax.set_xticklabels(trait_labels)
         ax.legend( (rects1[0], rects2[0]), ('Baseline', 'Corrected') )    
@@ -148,7 +176,7 @@ class AnalyzerShell(cmd.Cmd):
         split_up = arg.split(" ")
         self.data_analyzer.plot_recid(*split_up)
 
-    def do_correct_for(self, arg):
+    def do_correct_for(self, arg, calc_rms=False):
         'Correct a particular decile score attribute based on a specific column.\nSpecificy traits in the column to correct, or "ALL" for an analysis of all. \
          \ni.e. correct_for decile_score race African-American, Caucasian OR correct_for decile_score race ALL'
         split_up = arg.split(" ", 2)
@@ -158,7 +186,11 @@ class AnalyzerShell(cmd.Cmd):
         traits = split_up[2].split(", ")
         if (traits[0] == "ALL"):
             traits = []
-        self.data_analyzer.correct_for(col_name=col_name, recid_dec_col_name=dec_name, traits=traits)
+        self.data_analyzer.correct_for(col_name=col_name, recid_dec_col_name=dec_name, traits=traits, rms=calc_rms)
+
+    def do_correct_for_rms(self, arg):
+        'Same as correct_for, but using root mean squared error instead of linear error calculation'
+        self.do_correct_for(arg=arg, calc_rms=True)
 
     def do_quit(self, arg):
         'Quit'

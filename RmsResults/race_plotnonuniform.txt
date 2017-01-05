@@ -1,0 +1,45 @@
+(analyzer) correct_for_rms decile_score race African-American, Caucasian
+['African-American', 'Caucasian']
+For group African-American_8, root mean squared error: 4.277, baseline bias: 0.858
+For group African-American_9, root mean squared error: 4.405, baseline bias: 1.629
+For group African-American_4, root mean squared error: 4.627, baseline bias: -1.138
+For group African-American_5, root mean squared error: 4.510, baseline bias: -0.340
+For group African-American_6, root mean squared error: 4.468, baseline bias: -0.039
+For group African-American_7, root mean squared error: 4.472, baseline bias: 0.667
+For group African-American_1, root mean squared error: 4.303, baseline bias: -2.058
+For group African-American_2, root mean squared error: 4.481, baseline bias: -1.725
+For group African-American_3, root mean squared error: 4.781, baseline bias: -1.772
+For group Caucasian_2, root mean squared error: 4.552, baseline bias: -1.817
+For group Caucasian_3, root mean squared error: 4.397, baseline bias: -1.066
+For group Caucasian_1, root mean squared error: 4.110, baseline bias: -1.877
+For group Caucasian_6, root mean squared error: 4.455, baseline bias: -0.149
+For group Caucasian_7, root mean squared error: 4.403, baseline bias: 0.462
+For group Caucasian_4, root mean squared error: 4.439, baseline bias: -0.568
+For group Caucasian_5, root mean squared error: 4.488, baseline bias: -0.145
+For group Caucasian_10, root mean squared error: 4.904, baseline bias: 2.672
+For group Caucasian_8, root mean squared error: 4.078, baseline bias: 0.526
+For group Caucasian_9, root mean squared error: 4.504, baseline bias: 1.755
+For group African-American_10, root mean squared error: 4.088, baseline bias: 1.857
+=========================================
+t_err: 3.37507799486e-14
+For group African-American_8, new root mean squared error: 4.190, new baseline bias: -0.000
+For group African-American_9, new root mean squared error: 4.093, new baseline bias: 0.000
+For group African-American_4, new root mean squared error: 4.485, new baseline bias: -0.000
+For group African-American_5, new root mean squared error: 4.497, new baseline bias: 0.000
+For group African-American_6, new root mean squared error: 4.468, new baseline bias: 0.000
+For group African-American_7, new root mean squared error: 4.422, new baseline bias: -0.000
+For group African-American_1, new root mean squared error: 3.780, new baseline bias: 0.000
+For group African-American_2, new root mean squared error: 4.135, new baseline bias: -0.000
+For group African-American_3, new root mean squared error: 4.441, new baseline bias: 0.000
+For group Caucasian_2, new root mean squared error: 4.173, new baseline bias: -0.000
+For group Caucasian_3, new root mean squared error: 4.265, new baseline bias: -0.000
+For group Caucasian_1, new root mean squared error: 3.656, new baseline bias: -0.000
+For group Caucasian_6, new root mean squared error: 4.453, new baseline bias: 0.000
+For group Caucasian_7, new root mean squared error: 4.379, new baseline bias: 0.000
+For group Caucasian_4, new root mean squared error: 4.403, new baseline bias: -0.000
+For group Caucasian_5, new root mean squared error: 4.486, new baseline bias: 0.000
+For group Caucasian_10, new root mean squared error: 4.112, new baseline bias: 0.000
+For group Caucasian_8, new root mean squared error: 4.044, new baseline bias: -0.000
+For group Caucasian_9, new root mean squared error: 4.148, new baseline bias: 0.000
+For group African-American_10, new root mean squared error: 3.642, new baseline bias: -0.000
+(analyzer) 
