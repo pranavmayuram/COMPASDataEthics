@@ -2,6 +2,7 @@ import cmd
 import sys
 import os
 import csv
+import math
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -19,6 +20,14 @@ class DataAnalyzer(object):
     def __init__(self, filepath_in):
         self.plot_filepath = filepath_in
         self.df = pd.read_csv(filepath_in)
+        
+    def _get_median(self, some_list):
+        if len(some_list) is 0:
+            return None
+        elif len(some_list) % 2 is 1:
+            return some_list[len(some_list)/2]
+        else:
+            return float(some_list[len(some_list)/2] + some_list[len(some_list)/2 + 1])/2
 
     def trait_breakdown(self, col_name):
         '''
@@ -46,7 +55,7 @@ class DataAnalyzer(object):
         plt.draw()
         plt.pause(0.001)
 
-    def correct_for(self, col_name, recid_dec_col_name, traits=[]):
+    def correct_for(self, col_name, recid_dec_col_name, traits=[], rms=False):
         '''
         Across same col_name, correct the attribute for each trait to remove bias
         '''
@@ -57,6 +66,7 @@ class DataAnalyzer(object):
 
         print(traits)
         baseline_error_dict = {}
+        rms_error_dict = {}
         baseline_bias_dict = {}
         
         # for each trait, get some error and bias which can be printed/corrected for
@@ -65,6 +75,7 @@ class DataAnalyzer(object):
             num_members = len(group)
             total_abs_error = 0
             total_error = 0
+            total_squared_residuals = 0
             # iterate through each person in group
             for index, person in group.iterrows():
                 if int(person[CSVReaderConst.RECIDIVISM_COL_NAME]) == 1:
@@ -75,6 +86,7 @@ class DataAnalyzer(object):
                     person_error = float(person[recid_dec_col_name]) - CSVReaderConst.LOWEST_RISK
                 # compound error (for bias calculation), and absolute error
                 total_error += person_error
+                total_squared_residuals += pow(person_error, 2)
                 total_abs_error += abs(person_error)
             if num_members == 0:
                 raise ValueError("No members found in group {0!s}".format(trait))
@@ -82,19 +94,27 @@ class DataAnalyzer(object):
             # if mostly over-predicted, baseline bias positive. if under, negative.
             baseline_error_dict[trait] = total_abs_error/float(num_members)
             baseline_bias_dict[trait] = baseline_bias
-            print("For group {0!s}, baseline error: {1:.3f}, baseline bias: {2:.3f}".format(trait,
-                                                                                            baseline_error_dict[trait],
-                                                                                            baseline_bias_dict[trait]))
+            rms_error_dict[trait] = math.sqrt(total_squared_residuals/float(num_members))
+            if rms:
+                print("For group {0!s}, rms error: {1:.3f}, baseline bias: {2:.3f}".format(trait,
+                                                                                           rms_error_dict[trait],
+                                                                                           baseline_bias_dict[trait]))
+            else:
+                print("For group {0!s}, baseline error: {1:.3f}, baseline bias: {2:.3f}".format(trait,
+                                                                                                baseline_error_dict[trait],
+                                                                                                baseline_bias_dict[trait]))
 
         # bias correction calculation, now that we have bias per demographic (trait)                                                                                
         print("=========================================")
         new_error_dict = {}
+        new_rms_error_dict = {}
         new_baseline_dict = {}
         for trait in traits:
             group = self.df[self.df[col_name] == trait]
             num_members = len(group)
             new_total_error = 0
             total_abs_error = 0
+            total_squared_residuals = 0
             for index, person in group.iterrows():
                 # adjust/correct for bias of this group, subtract per person
                 corrected_decile = float(person[recid_dec_col_name]) - float(baseline_bias_dict[trait])
@@ -104,15 +124,20 @@ class DataAnalyzer(object):
                     person_error = float(corrected_decile) - CSVReaderConst.LOWEST_RISK
                 new_total_error += person_error
                 total_abs_error += abs(person_error)
+                total_squared_residuals += pow(person_error, 2)
             if num_members == 0:
                 raise ValueError("No members found in group {0!s}".format(trait))
-            # should turn to 0 every time since we corrected everyone for this
+            # bias should turn to 0 every time since we corrected everyone for this
             new_baseline_bias = new_total_error/float(num_members)
             new_error_dict[trait] = total_abs_error/float(num_members)
+            new_rms_error_dict[trait] = math.sqrt(total_squared_residuals/float(num_members))
             new_baseline_dict[trait] = new_baseline_bias
-            print("For group {0!s}, corrected error: {1:.3f}".format(trait, new_error_dict[trait]))
+            if rms:
+                print("For group {0!s}, corrected rms error: {1:.3f}".format(trait, new_rms_error_dict[trait]))
+            else:
+                print("For group {0!s}, corrected error: {1:.3f}".format(trait, new_error_dict[trait]))
 
-        return baseline_error_dict, baseline_bias_dict, new_error_dict
+        return baseline_error_dict, rms_error_dict, baseline_bias_dict, new_error_dict, new_rms_error_dict
 
 
 class AnalyzerShell(cmd.Cmd):
@@ -131,7 +156,7 @@ class AnalyzerShell(cmd.Cmd):
         split_up = arg.split(" ")
         self.data_analyzer.plot_recid(*split_up)
 
-    def do_correct_for(self, arg):
+    def do_correct_for(self, arg, calc_rms=False):
         'Correct a particular decile score attribute based on a specific column.\nSpecificy traits in the column to correct, or "ALL" for an analysis of all. \
          \ni.e. correct_for decile_score race African-American, Caucasian OR correct_for decile_score race ALL'
         split_up = arg.split(" ", 2)
@@ -141,7 +166,11 @@ class AnalyzerShell(cmd.Cmd):
         traits = split_up[2].split(", ")
         if (traits[0] == "ALL"):
             traits = []
-        self.data_analyzer.correct_for(col_name=col_name, recid_dec_col_name=dec_name, traits=traits)
+        self.data_analyzer.correct_for(col_name=col_name, recid_dec_col_name=dec_name, traits=traits, rms=calc_rms)
+    
+    def do_correct_for_rms(self, arg):
+        'Same as correct_for, but using root mean squared error instead of linear error calculation'
+        self.do_correct_for(arg=arg, calc_rms=True)
 
     def do_quit(self, arg):
         'Quit'

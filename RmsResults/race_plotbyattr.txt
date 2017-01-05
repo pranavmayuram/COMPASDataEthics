@@ -1,0 +1,23 @@
+(analyzer) correct_for_rms decile_score race ALL
+African-American    3696
+Caucasian           2454
+Hispanic             637
+Other                377
+Asian                 32
+Native American       18
+Name: race, dtype: int64
+['African-American', 'Caucasian', 'Hispanic', 'Other', 'Asian', 'Native American']
+For group African-American, rms error: 4.451, baseline bias: -0.260
+For group Caucasian, rms error: 4.366, baseline bias: -0.808
+For group Hispanic, rms error: 4.559, baseline bias: -0.815
+For group Other, rms error: 4.357, baseline bias: -1.225
+For group Asian, rms error: 3.255, baseline bias: -0.594
+For group Native American, rms error: 3.472, baseline bias: 0.167
+=========================================
+For group African-American, corrected rms error: 4.443
+For group Caucasian, corrected rms error: 4.291
+For group Hispanic, corrected rms error: 4.485
+For group Other, corrected rms error: 4.181
+For group Asian, corrected rms error: 3.200
+For group Native American, corrected rms error: 3.468
+(analyzer) 
