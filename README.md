@@ -27,3 +27,14 @@ There are 3 types of analysis we conducted:
         * i.e. linear bias correction would do bias correction for the demographic "Asian" within the "race" column, whereas non-uniform bias correction 
         would correct for "Asian" within "race" with a predicted decile score (risk score) of 7, essentially treating all Asians with a predicted score of 7 as their own demographic to perform bias correction on
     * Can be done either using linear error calculation, or root mean squared error calculation.
+    
+####Script Usage
+To use any of the scripts specified above, you just need to specify the script name, and the CSV data file you want to analyze (relative filepath).
+
+For example: ```$ python plot_by_attr.py ./compas-analysis/compas-scores-two-years.csv```
+
+This will bring up a command line with the prompt ```(analyzer)```, and type ```help``` to see the available functions. 
+
+Typing ```help specified_function_name``` for any of the available functions will give you a usage statement for that function.
+
+For example ```correct_for decile_score race ALL```
